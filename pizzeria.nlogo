@@ -10,7 +10,8 @@ commands-queue
 lost-commands-T
 lost-commands-R
 uniform-value
-ticks-count]
+ticks-count
+max-commands]
 
 breed [ amacondis amacondi ]
 breed [ commands command]
@@ -19,7 +20,7 @@ to setup
   clear-all
   set-default-shape turtles "person"
   create-amacondis num-amacondis [
-    set color blue
+    set color green
   ]
 
   set lost-commands-T 0
@@ -27,35 +28,32 @@ to setup
   set uniform-value 0
   set commands-queue 0
   set ticks-count 0
+  set max-commands 0
 
   ask turtles [
     set size 1.5  ;; easier to see
     setxy random-pxcor random-pycor
-    set energy max-stored-energy / 2
   ]
 
   ask amacondis [
     set time-to-free 0
-  ]
-  ask patches [
-    set resource-type "new"
-    set pcolor orange
-    update-patch
   ]
   reset-ticks
 end
 
 
 to go
-
-  set lost-commands-T lost-commands-T + num-commandsT-minute
-  set lost-commands-R lost-commands-R + num-commandsR-minute
   set uniform-value random 80 + 120
   set ticks-count ticks-count + 1
 
-  ifelse ticks-count mod commands-second = 0
-  [set commands-queue commands-queue + 1]
-  []
+  if ticks-count mod commands-second = 0
+  [
+    set commands-queue commands-queue + 1
+    if commands-queue > max-commands
+    [
+      set max-commands commands-queue
+    ]
+  ]
 
 
   ask amacondis [
@@ -63,28 +61,23 @@ to go
   ]
   ask turtles [
     move
-    if (energy > max-stored-energy)
-      [ set energy max-stored-energy ]
-    if energy < 0
-      [ die ]
   ]
 
   ifelse (show-time-to-free?)
-    [ ask turtles [ set label (round time-to-free) ] ]
+    [ ask turtles [ set label time-to-free ] ]
     [ ask turtles [ set label "" ] ]
 
-  update-environment
-  ask patches [ update-patch ]
   update-plots
   tick
+  if ticks = 10800
+  [stop]
 end
 
 to move  ;; turtle procedure
   ifelse time-to-free = 0
   [
   let target-patch one-of neighbors
-  if (agents-seek-resources?)
-  [
+
     let candidate-moves neighbors with [ resource-type = "new" ]
     ifelse any? candidate-moves
       [ set target-patch one-of candidate-moves ]
@@ -93,7 +86,7 @@ to move  ;; turtle procedure
       if any? candidate-moves
         [ set target-patch one-of candidate-moves ]
     ]
-  ]
+
   face target-patch
   move-to target-patch
 
@@ -105,71 +98,19 @@ end
 
 to amacondi-process-patch
 
-  set time-to-free time-to-free - 1
-
   ifelse time-to-free > 0
-    [ set color yellow ]
     [
-      set color blue
+      set color red
+      set time-to-free time-to-free - 1
+    ]
+    [
+      set color green
       ifelse commands-queue > 0
         [
           set commands-queue commands-queue - 1
           set time-to-free random 80 + 120
         ]
         []
-    ]
-
-
-
-
-
-
-
-
-
-
-
-  ifelse (resource-type = "new" )
-  [
-    if (energy <= max-stored-energy - 2)
-      [ set energy energy + 2 ]
-  ]
-  [
-    ifelse (resource-type = "recycled" )
-    [
-      if (energy <= max-stored-energy - 1)
-      [
-        set energy energy + 1
-      ]
-    ]
-    [
-      set energy energy - recycling-waste-cost
-      set resource-type "recycled"
-    ]
-  ]
-end
-
-to update-patch
-  ifelse (resource-type = "new")
-    [ set pcolor green ]
-  [ ifelse (resource-type = "recycled")
-      [ set pcolor lime ]
-      [ set pcolor yellow - 1 ]
-  ]
-end
-
-to update-environment
-  ask patches with [ resource-type = "recycled" ]
-  [
-    if random 100 < (resource-regeneration / 10)
-      [ set resource-type "new" ]
-  ]
-  ; waste is less likely to be renewed naturally by the environment
-  ; in this model, we arbitrarily assume 5 times less likely
-  ask patches with [ resource-type = "waste" ]
-  [
-    if (random 5 = 0) and (random 100 < (resource-regeneration / 10))
-      [ set resource-type "new" ]
   ]
 end
 @#$#@#$#@
@@ -243,86 +184,19 @@ num-amacondis
 num-amacondis
 0
 50
-3.0
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-5
-542
-184
-575
+9
+259
+188
+292
 show-time-to-free?
 show-time-to-free?
-0
-1
--1000
-
-SLIDER
-5
-387
-180
-420
-recycling-waste-cost
-recycling-waste-cost
-0
-2
-0.5
-0.25
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-427
-180
-460
-resource-regeneration
-resource-regeneration
-0
-100
-25.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-347
-180
-380
-max-stored-energy
-max-stored-energy
-10
-100
-50.0
-5
-1
-NIL
-HORIZONTAL
-
-MONITOR
-792
-40
-911
-85
-amacondis (blue)
-count amacondis
-17
-1
-11
-
-SWITCH
-0
-482
-185
-515
-agents-seek-resources?
-agents-seek-resources?
 1
 1
 -1000
@@ -353,7 +227,7 @@ num-commandsT-minute
 num-commandsT-minute
 0
 100
-34.0
+33.0
 1
 1
 NIL
@@ -377,76 +251,39 @@ false
 PENS
 "pen-1" 1.0 0 -8053223 true "" "plot commands-queue"
 
-MONITOR
-938
-40
-1159
-85
-comandes Telefoniques perdudes
-lost-commands-T
-17
-1
-11
-
 SLIDER
 6
-208
-219
-241
-num-commandsR-minute
-num-commandsR-minute
-0
-100
-26.0
-1
-1
-NIL
-HORIZONTAL
-
-MONITOR
-937
-95
-1146
-140
-comandes Restaurant perdudes
-lost-commands-R
-17
-1
-11
-
-MONITOR
-897
-234
-1100
-279
-NIL
-uniform-value
-17
-1
-11
-
-SLIDER
-6
-249
+211
 220
-282
+244
 commands-second
 commands-second
 0
 100
-10.0
+30.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-981
-343
-1107
-388
+671
+213
+797
+258
 NIL
 commands-queue
+17
+1
+11
+
+MONITOR
+802
+213
+916
+258
+NIL
+max-commands
 17
 1
 11
