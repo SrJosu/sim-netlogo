@@ -1,5 +1,4 @@
 turtles-own [
-  energy
   time-to-free
   command-type
 ]
@@ -7,57 +6,132 @@ patches-own [ resource-type ]
 
 globals [
 commands-queue
-lost-commands-T
-lost-commands-R
-uniform-value
+commands-trucada-queue
+commands-client-queue
 ticks-count
-max-commands]
+max-commands
+trucades-queue
+trucades-perdudes-queue
+clients-queue
+clients-perduts-queue
+generadorT
+generadorC
+recepcionista-busy-time
+telefonista-busy-time
+command-selector]
 
 breed [ amacondis amacondi ]
-breed [ commands command]
+breed [ telefonistes telefonista ]
+breed [ recepcionistes recepcionista ]
+breed [ comandes comanda ]
+breed [ forns forn ]
+breed [ repartidors repartidor ]
+
+telefonistes-own [busy-time]
+recepcionistes-own [busy-time]
+
+
+;;generadorT = trucades
+;;generadorC = clients
 
 to setup
   clear-all
   set-default-shape turtles "person"
   create-amacondis num-amacondis [
     set color green
+    set time-to-free 0
   ]
+  create-forns num-forns [ set time-to-free 0 ]
+  create-repartidors num-repartidors [ set time-to-free 0 ]
 
-  set lost-commands-T 0
-  set lost-commands-R 0
-  set uniform-value 0
+  ;;es crea la telefonista i la recepcionista amb busy-time 0 perque estan lliures
+  create-telefonistes 1 [ set busy-time 0 ]
+  create-recepcionistes 1 [set busy-time 0 ]
+
   set commands-queue 0
   set ticks-count 0
   set max-commands 0
+  set trucades-queue 0
+  set trucades-perdudes-queue 0
+  set generadorT 0
+  set generadorC 0
+  set recepcionista-busy-time 0
+  set telefonista-busy-time 0
+  set commands-trucada-queue 0
+  set commands-client-queue 0
+  set command-selector "t"
 
   ask turtles [
     set size 1.5  ;; easier to see
     setxy random-pxcor random-pycor
   ]
 
-  ask amacondis [
-    set time-to-free 0
-  ]
   reset-ticks
 end
 
 
 to go
-  set uniform-value random 80 + 120
+  ;;1+-0.5
+  ifelse generadorT = 0
+  [
+    set generadorT random 60 + 1
+    ifelse trucades-queue >= 2
+    [set trucades-perdudes-queue trucades-perdudes-queue + 1]
+    [set trucades-queue trucades-queue + 1]
+  ]
+  [ set generadorT generadorT - 1]
+
+  ;;2+-1
+  ifelse generadorC = 0
+  [
+    set generadorC random 120 + 1
+    ifelse clients-queue >= 10
+    [set clients-perduts-queue clients-perduts-queue + 1]
+    [set clients-queue clients-queue + 1]
+  ]
+  [ set generadorC generadorC - 1 ]
+
+  ;;telefonista i recepcionista atenen als clients/trucades i creen comandes
+  ask recepcionistes [recepcionistes-process]
+  ask telefonistes [telefonistes-process]
+
   set ticks-count ticks-count + 1
 
-  if ticks-count mod commands-second = 0
+  if commands-client-queue + commands-trucada-queue > 0
   [
-    set commands-queue commands-queue + 1
-    if commands-queue > max-commands
+    ifelse command-selector = "t"
     [
-      set max-commands commands-queue
+      ifelse commands-trucada-queue > 0
+      [
+        if any? amacondis with [time-to-free = 0]
+        [
+          set command-selector "c"
+          ask amacondis[ amacondi-process-trucada ]
+        ]
+      ]
+      [
+        if commands-client-queue > 0
+        [
+          ask amacondis[ amacondi-process-client ]
+        ]
+      ]
     ]
-  ]
-
-
-  ask amacondis [
-    amacondi-process-patch
+    [
+      ifelse commands-client-queue > 0
+      [
+        if any? amacondis with [time-to-free = 0]
+        [
+          set command-selector "t"
+          ask amacondis[ amacondi-process-client ]
+        ]
+      ]
+      [
+        if commands-trucada-queue > 0
+        [
+          ask amacondis[ amacondi-process-trucada ]
+        ]
+      ]
+    ]
   ]
   ask turtles [
     move
@@ -74,7 +148,7 @@ to go
 end
 
 to move  ;; turtle procedure
-  ifelse time-to-free = 0
+  if time-to-free = 0
   [
   let target-patch one-of neighbors
 
@@ -89,28 +163,95 @@ to move  ;; turtle procedure
 
   face target-patch
   move-to target-patch
-
-    set energy (energy - 1)]
-  []
+  ]
 end
 
 
-
-to amacondi-process-patch
-
-  ifelse time-to-free > 0
+to telefonistes-process
+  ifelse busy-time = 0
+  [
+    if commands-queue < 10
     [
-      set color red
-      set time-to-free time-to-free - 1
-    ]
-    [
-      set color green
-      ifelse commands-queue > 0
+      ifelse trucades-queue != 0
+      [
+        set trucades-queue trucades-queue - 1
+        set commands-trucada-queue commands-trucada-queue + 1
+        set commands-queue commands-trucada-queue + commands-client-queue
+        set busy-time 60
+        set telefonista-busy-time 60
+      ]
+      [
+        if clients-queue != 0
         [
-          set commands-queue commands-queue - 1
-          set time-to-free random 80 + 120
+          set clients-queue clients-queue - 1
+          set commands-client-queue commands-client-queue + 1
+          set commands-queue commands-trucada-queue + commands-client-queue
+          set busy-time 60
+          set telefonista-busy-time 60
         ]
-        []
+      ]
+    ]
+  ]
+  [
+    set busy-time busy-time - 1
+    set telefonista-busy-time telefonista-busy-time - 1
+  ]
+end
+
+to recepcionistes-process
+  ifelse  busy-time = 0
+  [
+    if commands-queue < 10
+    [
+      if clients-queue != 0
+      [
+        set clients-queue clients-queue - 1
+        set commands-client-queue commands-client-queue + 1
+        set commands-queue commands-trucada-queue + commands-client-queue
+        set busy-time 60
+        set recepcionista-busy-time 60
+      ]
+    ]
+  ]
+  [
+    set busy-time busy-time - 1
+    set recepcionista-busy-time recepcionista-busy-time - 1
+  ]
+end
+
+to amacondi-process-client
+  ifelse time-to-free > 0
+  [
+    set color red
+    set time-to-free time-to-free - 1
+  ]
+  [
+    set color green
+    set label ""
+    set commands-client-queue commands-client-queue - 1
+    set commands-queue commands-queue - 1
+    if commands-client-queue > 0
+    [
+      set commands-client-queue commands-client-queue - 1
+      set time-to-free random 60 + 180
+    ]
+  ]
+end
+
+to amacondi-process-trucada
+  ifelse time-to-free > 0
+  [
+    set color red
+    set time-to-free time-to-free - 1
+  ]
+  [
+    set color green
+    set label ""
+    if commands-queue > 0
+    [
+      set commands-queue commands-queue - 1
+      set time-to-free random 60 + 120
+    ]
   ]
 end
 @#$#@#$#@
@@ -182,9 +323,9 @@ SLIDER
 153
 num-amacondis
 num-amacondis
-0
+1
 50
-5.0
+1.0
 1
 1
 NIL
@@ -192,12 +333,12 @@ HORIZONTAL
 
 SWITCH
 9
-259
+328
 188
-292
+361
 show-time-to-free?
 show-time-to-free?
-1
+0
 1
 -1000
 
@@ -217,21 +358,6 @@ NIL
 NIL
 NIL
 0
-
-SLIDER
-6
-168
-219
-201
-num-commandsT-minute
-num-commandsT-minute
-0
-100
-33.0
-1
-1
-NIL
-HORIZONTAL
 
 PLOT
 670
@@ -253,14 +379,14 @@ PENS
 
 SLIDER
 6
-211
+280
 220
-244
+313
 commands-second
 commands-second
-0
+1
 100
-30.0
+78.0
 1
 1
 NIL
@@ -284,6 +410,157 @@ MONITOR
 258
 NIL
 max-commands
+17
+1
+11
+
+MONITOR
+675
+21
+787
+66
+NIL
+trucades-queue
+17
+1
+11
+
+MONITOR
+804
+22
+982
+67
+NIL
+trucades-perdudes-queue
+17
+1
+11
+
+MONITOR
+676
+77
+774
+122
+NIL
+clients-queue
+17
+1
+11
+
+MONITOR
+806
+78
+960
+123
+NIL
+clients-perduts-queue
+17
+1
+11
+
+MONITOR
+996
+22
+1098
+67
+time-next-call
+generadorT
+17
+1
+11
+
+MONITOR
+997
+78
+1111
+123
+time-next-client
+generadorC
+17
+1
+11
+
+MONITOR
+998
+134
+1164
+179
+NIL
+recepcionista-busy-time
+17
+1
+11
+
+MONITOR
+999
+184
+1147
+229
+NIL
+telefonista-busy-time
+17
+1
+11
+
+SLIDER
+4
+158
+176
+191
+num-repartidors
+num-repartidors
+1
+20
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+199
+177
+232
+num-forns
+num-forns
+1
+10
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+979
+334
+1110
+379
+NIL
+command-selector
+17
+1
+11
+
+MONITOR
+712
+495
+878
+540
+NIL
+commands-client-queue
+17
+1
+11
+
+MONITOR
+890
+495
+1070
+540
+NIL
+commands-trucada-queue
 17
 1
 11
