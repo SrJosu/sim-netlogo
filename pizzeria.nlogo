@@ -73,7 +73,7 @@ to go
   ;;1+-0.5
   ifelse generadorT = 0
   [
-    set generadorT random 60 + 1
+    set generadorT random 60 + 30
     ifelse trucades-queue >= 2
     [set trucades-perdudes-queue trucades-perdudes-queue + 1]
     [set trucades-queue trucades-queue + 1]
@@ -83,7 +83,7 @@ to go
   ;;2+-1
   ifelse generadorC = 0
   [
-    set generadorC random 120 + 1
+    set generadorC random 120 + 60
     ifelse clients-queue >= 10
     [set clients-perduts-queue clients-perduts-queue + 1]
     [set clients-queue clients-queue + 1]
@@ -228,6 +228,7 @@ to amacondi-process-client
     if commands-client-queue > 0
     [
       set commands-client-queue commands-client-queue - 1
+      set commands-queue commands-queue - 1
       set time-to-free random 60 + 180
     ]
   ]
@@ -243,8 +244,14 @@ to amacondi-process-trucada
     set command-selector "c"
     set color green
     set label ""
+    set commands-trucada-queue commands-trucada-queue - 1
+    set commands-queue commands-queue - 1
+
+    ;;trucar a les motos si estan lliures
+
     if commands-queue > 0
     [
+      set commands-trucada-queue commands-trucada-queue - 1
       set commands-queue commands-queue - 1
       set time-to-free random 60 + 120
     ]
