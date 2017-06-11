@@ -1,6 +1,7 @@
 turtles-own [
   time-to-free
   command-type
+  first-t
 ]
 patches-own [ resource-type ]
 
@@ -18,7 +19,9 @@ generadorT
 generadorC
 recepcionista-busy-time
 telefonista-busy-time
-command-selector]
+command-selector
+pizzes-fetes-en-espera
+]
 
 breed [ amacondis amacondi ]
 breed [ telefonistes telefonista ]
@@ -40,6 +43,7 @@ to setup
   create-amacondis num-amacondis [
     set color green
     set time-to-free 0
+    set first-t 1
   ]
   create-repartidors num-repartidors [ set time-to-free 0 set color blue]
 
@@ -59,6 +63,7 @@ to setup
   set commands-trucada-queue 0
   set commands-client-queue 0
   set command-selector "t"
+  set pizzes-fetes-en-espera 0
 
   ask turtles [
     set size 1.5  ;; easier to see
@@ -96,7 +101,7 @@ to go
 
   set ticks-count ticks-count + 1
 
-  if commands-client-queue + commands-trucada-queue > 0
+  ifelse commands-client-queue + commands-trucada-queue > 0
   [
     ifelse command-selector = "t"
     [
@@ -124,6 +129,10 @@ to go
       ]
     ]
   ]
+  [ ask amacondis [ amacondi-process ]]
+
+  ask repartidors [ repartidors-process ]
+
   ask turtles [
     move
   ]
@@ -223,14 +232,24 @@ to amacondi-process-client
     set command-selector "t"
     set color green
     set label ""
-    set commands-client-queue commands-client-queue - 1
-    set commands-queue commands-queue - 1
     if commands-client-queue > 0
     [
       set commands-client-queue commands-client-queue - 1
       set commands-queue commands-queue - 1
       set time-to-free random 60 + 180
     ]
+  ]
+end
+
+to amacondi-process
+  ifelse time-to-free > 0
+  [
+    set color red
+    set time-to-free time-to-free - 1
+  ]
+  [
+    set color green
+    set label ""
   ]
 end
 
@@ -244,16 +263,35 @@ to amacondi-process-trucada
     set command-selector "c"
     set color green
     set label ""
-    set commands-trucada-queue commands-trucada-queue - 1
-    set commands-queue commands-queue - 1
 
-    ;;trucar a les motos si estan lliures
+    ifelse first-t = 0
+    [
+      set pizzes-fetes-en-espera pizzes-fetes-en-espera + 1
+    ]
+    [ set first-t 0 ]
 
-    if commands-queue > 0
+    if commands-trucada-queue > 0
     [
       set commands-trucada-queue commands-trucada-queue - 1
       set commands-queue commands-queue - 1
       set time-to-free random 60 + 120
+    ]
+  ]
+end
+
+to repartidors-process
+  ifelse time-to-free > 0
+  [
+    set color orange
+    set time-to-free time-to-free - 1
+  ]
+  [
+    set color blue
+    set label ""
+    if pizzes-fetes-en-espera > 0
+    [
+      set pizzes-fetes-en-espera pizzes-fetes-en-espera - 1
+      set time-to-free random 600 + 300
     ]
   ]
 end
@@ -328,7 +366,7 @@ num-amacondis
 num-amacondis
 1
 50
-1.0
+11.0
 1
 1
 NIL
@@ -514,7 +552,7 @@ num-repartidors
 num-repartidors
 1
 20
-1.0
+7.0
 1
 1
 NIL
@@ -564,6 +602,17 @@ MONITOR
 540
 NIL
 commands-trucada-queue
+17
+1
+11
+
+MONITOR
+676
+150
+835
+195
+NIL
+pizzes-fetes-en-espera
 17
 1
 11
