@@ -41,12 +41,11 @@ to setup
     set color green
     set time-to-free 0
   ]
-  create-forns num-forns [ set time-to-free 0 ]
-  create-repartidors num-repartidors [ set time-to-free 0 ]
+  create-repartidors num-repartidors [ set time-to-free 0 set color blue]
 
   ;;es crea la telefonista i la recepcionista amb busy-time 0 perque estan lliures
-  create-telefonistes 1 [ set busy-time 0 ]
-  create-recepcionistes 1 [set busy-time 0 ]
+  create-telefonistes 1 [ set busy-time 0 set color pink]
+  create-recepcionistes 1 [set busy-time 0 set color pink]
 
   set commands-queue 0
   set ticks-count 0
@@ -103,11 +102,7 @@ to go
     [
       ifelse commands-trucada-queue > 0
       [
-        if any? amacondis with [time-to-free = 0]
-        [
-          set command-selector "c"
-          ask amacondis[ amacondi-process-trucada ]
-        ]
+        ask amacondis[ amacondi-process-trucada ]
       ]
       [
         if commands-client-queue > 0
@@ -119,11 +114,7 @@ to go
     [
       ifelse commands-client-queue > 0
       [
-        if any? amacondis with [time-to-free = 0]
-        [
-          set command-selector "t"
-          ask amacondis[ amacondi-process-client ]
-        ]
+        ask amacondis[ amacondi-process-client ]
       ]
       [
         if commands-trucada-queue > 0
@@ -177,6 +168,7 @@ to telefonistes-process
         set trucades-queue trucades-queue - 1
         set commands-trucada-queue commands-trucada-queue + 1
         set commands-queue commands-trucada-queue + commands-client-queue
+        if commands-queue > max-commands [ set max-commands commands-queue ]
         set busy-time 60
         set telefonista-busy-time 60
       ]
@@ -186,6 +178,7 @@ to telefonistes-process
           set clients-queue clients-queue - 1
           set commands-client-queue commands-client-queue + 1
           set commands-queue commands-trucada-queue + commands-client-queue
+          if commands-queue > max-commands [ set max-commands commands-queue ]
           set busy-time 60
           set telefonista-busy-time 60
         ]
@@ -208,6 +201,7 @@ to recepcionistes-process
         set clients-queue clients-queue - 1
         set commands-client-queue commands-client-queue + 1
         set commands-queue commands-trucada-queue + commands-client-queue
+        if commands-queue > max-commands [ set max-commands commands-queue ]
         set busy-time 60
         set recepcionista-busy-time 60
       ]
@@ -226,6 +220,7 @@ to amacondi-process-client
     set time-to-free time-to-free - 1
   ]
   [
+    set command-selector "t"
     set color green
     set label ""
     set commands-client-queue commands-client-queue - 1
@@ -245,6 +240,7 @@ to amacondi-process-trucada
     set time-to-free time-to-free - 1
   ]
   [
+    set command-selector "c"
     set color green
     set label ""
     if commands-queue > 0
